@@ -8,6 +8,7 @@ use log::error;
 use serde::{Deserialize, Serialize};
 use crate::tx::TXInput;
 use crate::tx::TXOutput;
+use crate::utxoset::UTXOSet;
 use crate::wallet::{hash_pub_key, Wallets};
 use crate::{blockchain::Blockchain, error::Result};
 
@@ -24,7 +25,7 @@ impl Transaction {
 
    
     /// New UTXO creates a new transaction
-    pub fn new_UTXO(from: &str, to: &str, amount: i32, bc: &Blockchain) -> Result<Transaction> {
+    pub fn new_UTXO(from: &str, to: &str, amount: i32, bc: &UTXOSet) -> Result<Transaction> {
         let mut vin = Vec::new();
 
         // Buscando Wallets
@@ -45,7 +46,7 @@ impl Transaction {
         let mut pub_key_hash = wallet.public_key.clone();
         hash_pub_key(&mut pub_key_hash);
 
-        let acc_v = bc.find_spendable_outputs(&pub_key_hash, amount);
+        let acc_v = bc.find_spendable_outputs(&pub_key_hash, amount)?;
 
 
         if acc_v.0 < amount {
@@ -90,7 +91,7 @@ impl Transaction {
         };
 
         tx.id = tx.hash()?;
-        bc.sign_transaction(&mut tx, &wallet.secret_key)?;
+        bc.blockchain.sign_transaction(&mut tx, &wallet.secret_key)?;
 
         Ok(tx)
     }

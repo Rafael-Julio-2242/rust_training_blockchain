@@ -61,5 +61,9 @@ impl TXOutput {
         Ok(txo)
     }
 
+    pub fn is_locked_with_key(&self, pub_key_hash: &[u8]) -> bool {
+        self.pub_key_hash == pub_key_hash
+    }
+
 }
 
