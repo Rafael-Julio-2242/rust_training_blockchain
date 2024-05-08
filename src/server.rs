@@ -109,7 +109,77 @@ impl Server {
             Message::Inv(data) => self.handle_inv(data)?,
             Message::GetBlock(data) => self.handle_get_blocks(data)?,
             Message::GetData(data) => self.handle_get_data(data)?,
+            Message::Tx(data) => self.handle_tx(data)?,
+            Message::Version(data) => self.handle_version(data)?
         }
+
+        Ok(())
+
+    }
+
+    fn handle_addr(&self, msg: Vec<String>) -> Result<()> {
+        info!("receive address msg: {:?}", msg);
+        for node in msg {
+            self.add_nodes(&node);
+        }
+
+        Ok(())
+    }
+
+    fn handle_block(&self, msg: Blockmsg) -> Result<()> {
+        info!(
+            "receive block msg: {}, {}",
+            msg.addr_from,
+            msg.block.get_hash()
+        );
+        self.add_block(msg.block)?;
+
+        let mut in_transit = self.get_in_transit()?;
+        if in_transit.len() > 0 {
+            let block_hash = &in_transit[0];
+            self.send_get_data(&msg.addr_from, "block", block_hash)?;
+            in_transit.remove(0);   
+            self.replace_in_transit(in_transit);
+        } else {
+            self.utxo_reindex()?;
+        }
+        Ok(())
+
+    }
+
+    fn add_nodes(&self, addr: &str) {
+        self.inner
+            .lock()
+            .unwrap()
+            .known_nodes
+            .insert(String::from(addr));
+    }
+
+    fn send_get_blocks(&self, addr: &str) -> Result<()> {
+        info!("send get blocks message to: {}", addr);
+
+        let data = GetBlockmsg {
+            addr_from: self.node_address.clone()
+        };
+
+        let data = bincode::serialize(&(cmd_to_bytes("getblocks"), data))?;
+        self.send_data(addr, &data)
+
+    }
+
+    fn send_get_data(&self, addr: &str, kind: &str, id: &str) -> Result<()> {
+        info!(
+            "send get data message to: {} kind: {} id: {}",
+            addr, kind, id
+        );
+
+        let data = GetDatamsg {
+            addr_from: self.node_address.clone(),
+            kind: String::from(kind),
+            id: String::from(id)
+        };
+        let data = bincode::serialize(&(cmd_to_bytes("getdata"), data))?;
+        self.send_data(addr, &data)
 
     }
 
